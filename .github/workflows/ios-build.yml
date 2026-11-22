@@ -1,0 +1,22 @@
+# Baut die iPhone-App auf einem Mac in der GitHub-Cloud (ohne Signatur, nur zur Fehlerprüfung).
+name: iPhone bauen
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - uses: actions/checkout@v4
+      - name: XcodeGen installieren
+        run: brew install xcodegen
+      - name: Xcode-Projekt erzeugen
+        run: xcodegen
+      - name: Übersetzen
+        run: |
+          xcodebuild -project KinderSchutz.xcodeproj -scheme KinderSchutz \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO build

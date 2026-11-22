@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">KinderSchutz</string>
+    <string name="accessibility_label">KinderSchutz App-Wächter</string>
+    <string name="accessibility_description">Erkennt, welche App geöffnet ist, damit gesperrte Apps und abgelaufene Zeitlimits durchgesetzt werden. Es werden keine Inhalte gelesen.</string>
+</resources>
