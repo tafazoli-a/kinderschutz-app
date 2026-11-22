@@ -32,8 +32,11 @@ class AppGuardService : AccessibilityService() {
     }
 
     // Alle 30 Sekunden prüfen, damit ein Limit auch greift, wenn das Kind in der App bleibt.
+    private var ticks = 0
+
     private val periodic = object : Runnable {
         override fun run() {
+            if (ticks++ % 10 == 0) CloudSync.syncNow(this@AppGuardService) // alle 5 Minuten mit der Verwaltung abgleichen
             currentPkg?.let { check(it) }
             handler.postDelayed(this, 30_000)
         }

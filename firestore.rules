@@ -1,0 +1,40 @@
+rules_version = '2';
+// Sicherheitsregeln: Nur die Eltern sehen und ändern ihre Handys.
+// Ein Kinderhandy darf nur seine eigenen Regeln lesen und seine Nutzungszeit melden.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Einmal-Codes zum Verbinden eines Kinderhandys (1 Stunde gültig)
+    match /pairCodes/{code} {
+      allow create: if request.auth != null
+        && request.resource.data.familyId == request.auth.uid;
+      allow get: if request.auth != null;
+      allow delete: if request.auth != null && resource.data.familyId == request.auth.uid;
+      allow update: if request.auth != null
+        && resource.data.claimedBy == null
+        && request.time < resource.data.expiresAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimedBy'])
+        && request.resource.data.claimedBy == request.auth.uid;
+    }
+
+    // Ein Handy einer Familie (die Familie = das Google-Konto der Eltern)
+    match /families/{familyId}/devices/{deviceId} {
+      allow read, write: if request.auth != null && request.auth.uid == familyId;
+
+      allow get: if request.auth != null && resource.data.deviceUid == request.auth.uid;
+
+      allow update: if request.auth != null && (
+        // verbundenes Kinderhandy meldet Nutzung und App-Liste
+        (resource.data.deviceUid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['usageJson', 'appsJson', 'lastSeen']))
+        ||
+        // Kinderhandy verbindet sich mit dem Code, den es eingelöst hat
+        (resource.data.deviceUid == null
+          && get(/databases/$(database)/documents/pairCodes/$(resource.data.pairCode)).data.claimedBy == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deviceUid'])
+          && request.resource.data.deviceUid == request.auth.uid)
+      );
+    }
+  }
+}

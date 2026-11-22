@@ -122,6 +122,35 @@ class MainActivity : Activity() {
         screen {
             addView(title("KinderSchutz – Eltern"))
 
+            // 0. Eltern-Verwaltung
+            addView(section("Eltern-Verwaltung"))
+            when {
+                !CloudSync.isConfigured() ->
+                    addView(label("Noch nicht eingerichtet. Regeln werden nur hier am Handy eingestellt."))
+                CloudSync.isPaired(ctx) -> {
+                    val last = CloudSync.lastSync(ctx)
+                    val time = if (last == 0L) "noch nie" else
+                        java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date(last))
+                    addView(label("✅ Verbunden als „${CloudSync.deviceName(ctx) ?: "Kinderhandy"}“. Letzter Abgleich: $time"))
+                    CloudSync.lastError(ctx)?.let { addView(label("⚠️ $it")) }
+                    addView(label("Die Regeln kommen aus der Verwaltung. Änderungen hier werden beim nächsten Abgleich überschrieben."))
+                    addView(button("Jetzt abgleichen") {
+                        CloudSync.syncNow(ctx) { err -> toast(err ?: "Abgeglichen"); showParentScreen() }
+                    })
+                }
+                else -> {
+                    addView(label("Gib den 6-stelligen Code aus der Eltern-Verwaltung ein."))
+                    val code = field("", "Code", InputType.TYPE_CLASS_NUMBER)
+                    addView(code)
+                    addView(button("Verbinden") {
+                        val v = code.text.toString().trim()
+                        if (v.length != 6) { toast("Der Code hat 6 Ziffern"); return@button }
+                        toast("Verbinde …")
+                        CloudSync.pair(ctx, v) { err -> toast(err ?: "Verbunden!"); showParentScreen() }
+                    })
+                }
+            }
+
             // 1. Einrichtung
             addView(section("1. Einrichtung (einmalig)"))
             addView(statusRow("Bildschirmzeit messen", UsageHelper.hasPermission(ctx), "Erlauben") {
@@ -177,7 +206,7 @@ class MainActivity : Activity() {
             addView(label("Minuten pro Tag eintragen (leer = kein Limit) oder „Sperren“ ankreuzen."))
             val limits = RulesStore.appLimits(ctx)
             val blocked = RulesStore.blockedApps(ctx)
-            val rows = launchableApps().map { (pkg, name) ->
+            val rows = UsageHelper.launchableApps(ctx).map { (pkg, name) ->
                 val minutes = field(limits[pkg]?.toString() ?: "", "Min", InputType.TYPE_CLASS_NUMBER).apply {
                     layoutParams = LinearLayout.LayoutParams(dp(80), LinearLayout.LayoutParams.WRAP_CONTENT)
                 }
@@ -222,16 +251,6 @@ class MainActivity : Activity() {
     }
 
     // ---------------- Hilfsfunktionen ----------------
-    private fun launchableApps(): List<Pair<String, String>> {
-        val pm = packageManager
-        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        return pm.queryIntentActivities(intent, 0)
-            .map { it.activityInfo.packageName to it.loadLabel(pm).toString() }
-            .distinctBy { it.first }
-            .filter { it.first != packageName }
-            .sortedBy { it.second.lowercase() }
-    }
-
     private fun isAccessibilityOn(): Boolean {
         val enabled = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: ""
         return enabled.split(':').any { it.startsWith("$packageName/") }

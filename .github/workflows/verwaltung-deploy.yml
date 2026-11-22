@@ -1,0 +1,27 @@
+# Stellt die Eltern-Verwaltung und die Sicherheitsregeln bei Firebase online.
+# Braucht das GitHub-Secret FIREBASE_SERVICE_ACCOUNT (Inhalt der Dienstkonto-JSON-Datei aus Firebase).
+name: Verwaltung online stellen
+on:
+  push:
+    branches: [main]
+    paths: ["verwaltung/**", "firestore.rules", "firebase.json"]
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prüfen, ob Firebase eingerichtet ist
+        id: check
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$SA" ]; then echo "Secret FIREBASE_SERVICE_ACCOUNT fehlt noch, überspringe."; echo "ready=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+          echo "project=$(jq -r .project_id "$RUNNER_TEMP/sa.json")" >> "$GITHUB_OUTPUT"
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+      - name: Online stellen
+        if: steps.check.outputs.ready == 'true'
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/sa.json
+        run: npx --yes firebase-tools@13 deploy --only hosting,firestore:rules --project "${{ steps.check.outputs.project }}" --non-interactive

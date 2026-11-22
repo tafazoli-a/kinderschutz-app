@@ -77,6 +77,17 @@ object UsageHelper {
         return usage.filterKeys { it !in ignore }.values.sum()
     }
 
+    /** Alle Apps mit Symbol auf dem Startbildschirm: Paketname -> Name. */
+    fun launchableApps(c: Context): List<Pair<String, String>> {
+        val pm = c.packageManager
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        return pm.queryIntentActivities(intent, 0)
+            .map { it.activityInfo.packageName to it.loadLabel(pm).toString() }
+            .distinctBy { it.first }
+            .filter { it.first != c.packageName }
+            .sortedBy { it.second.lowercase() }
+    }
+
     fun appLabel(c: Context, pkg: String): String = try {
         val pm = c.packageManager
         pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
