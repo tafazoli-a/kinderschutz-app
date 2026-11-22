@@ -15,6 +15,17 @@ android {
         versionName = "0.1"
     }
 
+    // Feste Test-Signatur: so lassen sich neue Test-Versionen über die alte installieren.
+    // Nur zum Testen! Für eine echte Veröffentlichung einen eigenen, geheimen Schlüssel verwenden.
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("test-signatur.jks")
+            storePassword = "kinderschutz"
+            keyAlias = "test"
+            keyPassword = "kinderschutz"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false

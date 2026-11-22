@@ -1,8 +1,10 @@
-# Baut die Android-App (APK) in der GitHub-Cloud. Die fertige APK steht danach unter "Artifacts".
+# Baut die Android-App (APK) in der GitHub-Cloud und stellt sie als "Test-Version" zum Download bereit.
 name: Android bauen
 on:
   push:
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -21,3 +23,13 @@ jobs:
         with:
           name: KinderSchutz-APK
           path: app/build/outputs/apk/debug/*.apk
+      - name: Test-Version zum Download bereitstellen
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk KinderSchutz.apk
+          gh release delete test --yes --cleanup-tag || true
+          gh release create test KinderSchutz.apk --prerelease --target "$GITHUB_SHA" \
+            --title "KinderSchutz Test-Version" \
+            --notes "Automatisch gebaut aus Stand ${GITHUB_SHA::7}. Nur zum Testen."
