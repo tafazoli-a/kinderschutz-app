@@ -6,6 +6,8 @@ struct ParentView: View {
     var onLock: () -> Void
 
     @ObservedObject private var auth = AuthorizationCenter.shared
+    @ObservedObject private var cloud = CloudSync.shared
+    @State private var pairCode = ""
     @State private var rules = Rules.load()
     @State private var domainText = Rules.load().blockedDomains.joined(separator: "\n")
     @State private var pickTotal = false
@@ -15,6 +17,31 @@ struct ParentView: View {
     var body: some View {
         NavigationView {
             Form {
+                Section("Eltern-Verwaltung") {
+                    if !cloud.isConfigured {
+                        Text("Noch nicht eingerichtet. Regeln werden nur hier am iPhone eingestellt.")
+                            .font(.footnote).foregroundColor(.secondary)
+                    } else if cloud.isPaired {
+                        Text("✅ Verbunden als „\(cloud.deviceName ?? "Kinder-iPhone")“")
+                        if let last = cloud.lastSync {
+                            Text("Letzter Abgleich: \(last.formatted(date: .omitted, time: .shortened))")
+                                .font(.footnote).foregroundColor(.secondary)
+                        }
+                        Button("Jetzt abgleichen") { Task { await cloud.sync(); rules = Rules.load(); domainText = rules.blockedDomains.joined(separator: "\n") } }
+                    } else {
+                        TextField("6-stelliger Code", text: $pairCode).keyboardType(.numberPad)
+                        Button("Verbinden") {
+                            Task {
+                                let code = pairCode.trimmingCharacters(in: .whitespaces)
+                                guard code.count == 6 else { status = "Der Code hat 6 Ziffern"; return }
+                                status = await cloud.pair(code: code) ?? "✅ Verbunden"
+                                rules = Rules.load(); domainText = rules.blockedDomains.joined(separator: "\n")
+                            }
+                        }
+                    }
+                    if let err = cloud.lastError { Text("⚠️ \(err)").font(.footnote) }
+                }
+
                 Section("1. Einrichtung") {
                     HStack {
                         Text(auth.authorizationStatus == .approved ? "✅ Bildschirmzeit erlaubt" : "❌ Bildschirmzeit nicht erlaubt")
